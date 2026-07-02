@@ -1,0 +1,12 @@
+/vendor/
+/node_modules/
+/public/build/
+/storage/
+/.phpunit.cache/
+/.phpunit.result.cache
+/coverage/
+composer.lock
+package-lock.json
+.phpstan.cache
+.DS_Store
+*.log
