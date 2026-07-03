@@ -4,9 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title inertia>Project Analyzer</title>
-    @unless (app()->environment('testing'))
-        @vite(['resources/assets/js/app.js'])
-    @endunless
+    {!! \ProjectAnalyzer\Support\DashboardAssets::tags() !!}
     @inertiaHead
 </head>
 <body class="font-sans antialiased">

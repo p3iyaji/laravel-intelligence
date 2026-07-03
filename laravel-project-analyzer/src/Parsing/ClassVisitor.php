@@ -55,7 +55,7 @@ class ClassVisitor extends NodeVisitorAbstract
                     'name' => $method->name->toString(),
                     'visibility' => $this->getVisibility($method),
                     'parameters' => count($method->params),
-                    'return_type' => $method->getReturnType()?->toString(),
+                    'return_type' => TypeFormatter::format($method->getReturnType()),
                     'is_static' => $method->isStatic(),
                 ];
             }

@@ -1,6 +1,5 @@
 /vendor/
 /node_modules/
-/public/build/
 /storage/
 /.phpunit.cache/
 /.phpunit.result.cache
@@ -10,3 +9,4 @@ package-lock.json
 .phpstan.cache
 .DS_Store
 *.log
+laravel-project-analyzer-prd.md

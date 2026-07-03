@@ -130,10 +130,27 @@ class ProjectAnalyzerServiceProvider extends ServiceProvider
 
         if (config('project-analyzer.dashboard.enabled', true)) {
             $this->loadRoutesFrom(__DIR__.'/../routes/dashboard.php');
+            $this->registerDashboardAssets();
         }
+
+        $this->publishes([
+            __DIR__.'/../public' => public_path('vendor/project-analyzer'),
+        ], 'project-analyzer-public');
 
         $this->publishes([
             __DIR__.'/../resources/assets' => resource_path('vendor/project-analyzer'),
         ], 'project-analyzer-assets');
+    }
+
+    protected function registerDashboardAssets(): void
+    {
+        if ($this->app->runningInConsole() && ! $this->app->runningUnitTests()) {
+            return;
+        }
+
+        if (! file_exists(public_path('vendor/project-analyzer/build/manifest.json'))
+            && ! file_exists(public_path('vendor/project-analyzer/build/.vite/manifest.json'))) {
+            \ProjectAnalyzer\Support\DashboardAssets::publishAssets();
+        }
     }
 }

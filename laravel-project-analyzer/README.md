@@ -21,8 +21,21 @@ A comprehensive Laravel package that performs static analysis of any Laravel app
 
 ## Installation
 
+```Add to composer.json
+"repositories": [
+        {
+            "type": "path",
+            "url": "boa-intelligence/laravel-project-analyzer",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+```
+
 ```bash
 composer require boa-intelligence/laravel-project-analyzer
+ composer require boa-intelligence/laravel-project-analyzer:dev-main
 ```
 
 Publish configuration:
@@ -31,11 +44,20 @@ Publish configuration:
 php artisan vendor:publish --tag=project-analyzer-config
 ```
 
-Publish frontend assets (optional, for dashboard customization):
+Publish dashboard assets (automatic on first visit, or run manually):
+
+```bash
+php artisan vendor:publish --tag=project-analyzer-public
+```
+
+The dashboard works out of the box — no need to add package assets to your app's Vite config.
+
+Optional — publish source assets for customization:
 
 ```bash
 php artisan vendor:publish --tag=project-analyzer-assets
-npm install && npm run build
+cd resources/vendor/project-analyzer && npm install && npm run build
+php artisan vendor:publish --tag=project-analyzer-public --force
 ```
 
 ## Quick Start
@@ -62,21 +84,21 @@ php artisan project:analyze:report --format=html
 
 ## Artisan Commands
 
-| Command | Description |
-|---------|-------------|
-| `project:analyze` | Full project analysis |
-| `project:analyze --quick` | Use cached results |
-| `project:analyze --path=app/Services` | Analyze specific path |
-| `project:analyze --analyzers=model,controller` | Run specific analyzers |
-| `project:analyze:export --format=json` | Export analysis results |
-| `project:analyze:dashboard` | Show dashboard URL |
-| `project:analyze:docs` | Generate documentation |
-| `project:analyze:clear` | Clear analysis cache |
-| `project:analyze:tests --suggest` | Test coverage suggestions |
-| `project:analyze:database` | Database schema analysis |
-| `project:analyze:security` | Security audit |
-| `project:analyze:watch` | Watch for file changes |
-| `project:analyze:report --format=html` | Generate HTML report |
+| Command                                        | Description               |
+| ---------------------------------------------- | ------------------------- |
+| `project:analyze`                              | Full project analysis     |
+| `project:analyze --quick`                      | Use cached results        |
+| `project:analyze --path=app/Services`          | Analyze specific path     |
+| `project:analyze --analyzers=model,controller` | Run specific analyzers    |
+| `project:analyze:export --format=json`         | Export analysis results   |
+| `project:analyze:dashboard`                    | Show dashboard URL        |
+| `project:analyze:docs`                         | Generate documentation    |
+| `project:analyze:clear`                        | Clear analysis cache      |
+| `project:analyze:tests --suggest`              | Test coverage suggestions |
+| `project:analyze:database`                     | Database schema analysis  |
+| `project:analyze:security`                     | Security audit            |
+| `project:analyze:watch`                        | Watch for file changes    |
+| `project:analyze:report --format=html`         | Generate HTML report      |
 
 ## Configuration
 
