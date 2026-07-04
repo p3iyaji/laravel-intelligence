@@ -1,7 +1,14 @@
 <template>
     <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Test Coverage</h1>
-
+        <div class="flex flex-col gap-4 mb-6 md:flex-row md:items-center md:justify-between">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Test Coverage</h1>
+            <a
+                href="/analyzer/test-generation"
+                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+                Open Test Generator
+            </a>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <ScoreCard label="Overall Coverage" :value="(coverage.overall ?? 0) + '%'" :variant="coverageVariant" />
             <ScoreCard label="Total Tests" :value="testData.total_tests ?? 0" />

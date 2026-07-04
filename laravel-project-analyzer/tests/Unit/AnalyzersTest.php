@@ -2,6 +2,7 @@
 
 use ProjectAnalyzer\Analyzers\ClassAnalyzer;
 use ProjectAnalyzer\Analyzers\ControllerAnalyzer;
+use ProjectAnalyzer\Analyzers\CostAnalyzer;
 use ProjectAnalyzer\Analyzers\DatabaseAnalyzer;
 use ProjectAnalyzer\Analyzers\ModelAnalyzer;
 use ProjectAnalyzer\Analyzers\RouteAnalyzer;
@@ -116,6 +117,18 @@ describe('SecurityAnalyzer', function () {
         $result = $analyzer->analyze($context);
 
         expect($result)->toHaveKeys(['total_findings', 'findings', 'high_severity']);
+    });
+});
+
+describe('CostAnalyzer', function () {
+    it('finds runtime cost hotspots', function () {
+        $context = createTestContext();
+        $analyzer = new CostAnalyzer;
+
+        $result = $analyzer->analyze($context);
+
+        expect($result)->toHaveKeys(['total_hotspots', 'estimated_score', 'hotspots']);
+        expect($result['total_hotspots'])->toBeGreaterThan(0);
     });
 });
 

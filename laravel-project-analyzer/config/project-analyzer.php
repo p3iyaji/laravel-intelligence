@@ -29,6 +29,7 @@ return [
         'service' => true,
         'test' => true,
         'security' => true,
+        'cost' => true,
     ],
 
     'cache' => [
@@ -49,6 +50,23 @@ return [
         'formats' => ['json', 'markdown', 'html'],
         'location' => storage_path('project-analysis'),
         'include_private' => false,
+    ],
+
+    'test_generation' => [
+        'enabled' => true,
+        'framework' => 'pest',
+        'paths' => [
+            'unit' => 'tests/Unit',
+            'feature' => 'tests/Feature',
+        ],
+        'overwrite' => false,
+    ],
+
+    'auto_fix' => [
+        'enabled' => true,
+        'generate_tests' => true,
+        'replace_superglobals' => true,
+        'create_interfaces' => true,
     ],
 
     'plugins' => [

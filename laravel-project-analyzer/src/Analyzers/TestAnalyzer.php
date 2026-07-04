@@ -72,12 +72,17 @@ class TestAnalyzer extends AbstractAnalyzer
         foreach (array_merge($controllers, $models, $services) as $component) {
             $name = $component['name'] ?? '';
             if (! in_array($name, $testedClasses, true)) {
+                $type = $this->detectComponentType($component);
                 $missing[] = [
                     'class' => $component['fqn'] ?? $name,
-                    'type' => str_contains($component['file'] ?? '', 'Controller') ? 'controller' : (
-                        str_contains($component['file'] ?? '', 'Models') ? 'model' : 'service'
-                    ),
+                    'name' => $name,
+                    'type' => $type,
                     'suggestion' => "Create test for {$name}",
+                    'source_file' => $component['file'] ?? null,
+                    'suggested_suite' => $type === 'controller' ? 'feature' : 'unit',
+                    'suggested_path' => ($type === 'controller' ? 'tests/Feature/' : 'tests/Unit/').$name.'Test.php',
+                    'public_methods' => $this->extractPublicMethods($component),
+                    'suggested_cases' => $this->suggestedCasesForComponent($component, $type),
                 ];
             }
         }
@@ -106,5 +111,73 @@ class TestAnalyzer extends AbstractAnalyzer
         }
 
         return round(($tested / $total) * 100, 2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $component
+     * @return array<int, string>
+     */
+    private function extractPublicMethods(array $component): array
+    {
+        $methods = [];
+
+        foreach ($component['methods'] ?? [] as $method) {
+            $name = $method['name'] ?? null;
+            if ($name === null || str_starts_with($name, '__')) {
+                continue;
+            }
+
+            if (($method['visibility'] ?? 'public') === 'public') {
+                $methods[] = $name;
+            }
+        }
+
+        return $methods;
+    }
+
+    /**
+     * @param  array<string, mixed>  $component
+     */
+    private function detectComponentType(array $component): string
+    {
+        $file = (string) ($component['file'] ?? '');
+
+        if (str_contains($file, 'Controller') || str_contains($file, '/Controllers/')) {
+            return 'controller';
+        }
+
+        if (str_contains($file, 'Models') || str_contains($file, '/Models/')) {
+            return 'model';
+        }
+
+        return 'service';
+    }
+
+    /**
+     * @param  array<string, mixed>  $component
+     * @return array<int, string>
+     */
+    private function suggestedCasesForComponent(array $component, string $type): array
+    {
+        $cases = [];
+        $name = (string) ($component['name'] ?? 'component');
+        $publicMethods = $this->extractPublicMethods($component);
+
+        if ($type === 'controller') {
+            $cases[] = 'add request/response assertions for '.$name;
+            $cases[] = 'cover authorization and validation behavior';
+        } elseif ($type === 'model') {
+            $cases[] = 'cover relationships and attribute behavior';
+            $cases[] = 'assert casts, scopes, and fillable/guarded expectations';
+        } else {
+            $cases[] = 'cover the main business flow and edge cases';
+            $cases[] = 'mock dependencies for isolated service behavior';
+        }
+
+        foreach ($publicMethods as $method) {
+            $cases[] = 'add coverage for '.$name.'::'.$method;
+        }
+
+        return array_values(array_unique($cases));
     }
 }

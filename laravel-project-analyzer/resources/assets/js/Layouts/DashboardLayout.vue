@@ -11,8 +11,13 @@
                             <NavLink href="/analyzer" :active="isActive('/analyzer')">Overview</NavLink>
                             <NavLink href="/analyzer/components" :active="isActive('/analyzer/components')">Components</NavLink>
                             <NavLink href="/analyzer/graphs" :active="isActive('/analyzer/graphs')">Graphs</NavLink>
+                            <NavLink href="/analyzer/code-visualization" :active="isActive('/analyzer/code-visualization')">Code Maps</NavLink>
                             <NavLink href="/analyzer/tests" :active="isActive('/analyzer/tests')">Tests</NavLink>
+                            <NavLink href="/analyzer/test-generation" :active="isActive('/analyzer/test-generation')">Test Generator</NavLink>
+                            <NavLink href="/analyzer/auto-fix" :active="isActive('/analyzer/auto-fix')">Auto Fix</NavLink>
                             <NavLink href="/analyzer/metrics" :active="isActive('/analyzer/metrics')">Metrics</NavLink>
+                            <NavLink href="/analyzer/insights" :active="isActive('/analyzer/insights')">Insights</NavLink>
+                            <NavLink href="/analyzer/validation" :active="isActive('/analyzer/validation')">Validation</NavLink>
                             <NavLink href="/analyzer/recommendations" :active="isActive('/analyzer/recommendations')">Recommendations</NavLink>
                         </div>
                     </div>

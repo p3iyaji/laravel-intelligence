@@ -5,6 +5,7 @@ namespace ProjectAnalyzer;
 use Illuminate\Support\ServiceProvider;
 use ProjectAnalyzer\Analyzers\ClassAnalyzer;
 use ProjectAnalyzer\Analyzers\ControllerAnalyzer;
+use ProjectAnalyzer\Analyzers\CostAnalyzer;
 use ProjectAnalyzer\Analyzers\DatabaseAnalyzer;
 use ProjectAnalyzer\Analyzers\ModelAnalyzer;
 use ProjectAnalyzer\Analyzers\RouteAnalyzer;
@@ -12,6 +13,7 @@ use ProjectAnalyzer\Analyzers\SecurityAnalyzer;
 use ProjectAnalyzer\Analyzers\ServiceAnalyzer;
 use ProjectAnalyzer\Analyzers\TestAnalyzer;
 use ProjectAnalyzer\Commands\AnalyzeCommand;
+use ProjectAnalyzer\Commands\AutoFixCommand;
 use ProjectAnalyzer\Commands\ClearCacheCommand;
 use ProjectAnalyzer\Commands\DatabaseAnalysisCommand;
 use ProjectAnalyzer\Commands\ExportReportCommand;
@@ -20,12 +22,15 @@ use ProjectAnalyzer\Commands\ReportCommand;
 use ProjectAnalyzer\Commands\SecurityAuditCommand;
 use ProjectAnalyzer\Commands\ServeDashboardCommand;
 use ProjectAnalyzer\Commands\TestSuggestionsCommand;
+use ProjectAnalyzer\Commands\ValidateCommand;
 use ProjectAnalyzer\Commands\WatchCommand;
 use ProjectAnalyzer\Engine\AnalysisEngine;
+use ProjectAnalyzer\Fixes\AutoFixService;
 use ProjectAnalyzer\Generators\HtmlGenerator;
 use ProjectAnalyzer\Generators\JsonGenerator;
 use ProjectAnalyzer\Generators\MarkdownGenerator;
 use ProjectAnalyzer\Generators\ReportExporter;
+use ProjectAnalyzer\Graph\CodeVisualizationService;
 use ProjectAnalyzer\Graph\DependencyGraphBuilder;
 use ProjectAnalyzer\Graph\GraphVisualizer;
 use ProjectAnalyzer\Graph\RelationshipMapper;
@@ -34,6 +39,8 @@ use ProjectAnalyzer\Metrics\CoverageCalculator;
 use ProjectAnalyzer\Metrics\HealthScoreCalculator;
 use ProjectAnalyzer\Plugins\PluginManager;
 use ProjectAnalyzer\Recommendations\RecommendationEngine;
+use ProjectAnalyzer\Testing\TestGenerationService;
+use ProjectAnalyzer\Validation\ValidationService;
 
 class ProjectAnalyzerServiceProvider extends ServiceProvider
 {
@@ -43,10 +50,18 @@ class ProjectAnalyzerServiceProvider extends ServiceProvider
 
         $this->app->singleton(ComplexityCalculator::class);
         $this->app->singleton(CoverageCalculator::class);
+        $this->app->singleton(CodeVisualizationService::class);
         $this->app->singleton(DependencyGraphBuilder::class);
         $this->app->singleton(RelationshipMapper::class);
         $this->app->singleton(GraphVisualizer::class);
         $this->app->singleton(RecommendationEngine::class);
+        $this->app->singleton(TestGenerationService::class);
+        $this->app->singleton(ValidationService::class);
+        $this->app->singleton(AutoFixService::class, function ($app) {
+            return new AutoFixService(
+                $app->make(TestGenerationService::class),
+            );
+        });
 
         $this->app->singleton(HealthScoreCalculator::class, function ($app) {
             return new HealthScoreCalculator(
@@ -71,6 +86,7 @@ class ProjectAnalyzerServiceProvider extends ServiceProvider
                 new ServiceAnalyzer,
                 new TestAnalyzer,
                 new SecurityAnalyzer,
+                new CostAnalyzer,
             ];
 
             $config = config('project-analyzer.analyzers', []);
@@ -110,11 +126,13 @@ class ProjectAnalyzerServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AnalyzeCommand::class,
+                AutoFixCommand::class,
                 ExportReportCommand::class,
                 ServeDashboardCommand::class,
                 GenerateDocsCommand::class,
                 ClearCacheCommand::class,
                 TestSuggestionsCommand::class,
+                ValidateCommand::class,
                 DatabaseAnalysisCommand::class,
                 SecurityAuditCommand::class,
                 ReportCommand::class,

@@ -103,8 +103,12 @@ class AnalysisEngine
 
         $graphBuilder = app(\ProjectAnalyzer\Graph\DependencyGraphBuilder::class);
         $relationshipMapper = app(\ProjectAnalyzer\Graph\RelationshipMapper::class);
+        $visualizationService = app(\ProjectAnalyzer\Graph\CodeVisualizationService::class);
+        $validationService = app(\ProjectAnalyzer\Validation\ValidationService::class);
         $context->addResult('graph', $graphBuilder->build($context));
         $context->addResult('relationships', $relationshipMapper->map($context));
+        $context->addResult('visualizations', $visualizationService->build($context));
+        $context->addResult('validation', $validationService->validateEnvironment($basePath, $config));
 
         $metrics = $this->healthCalculator->calculate($context);
         $recommendations = $this->recommendationEngine->generate($context);

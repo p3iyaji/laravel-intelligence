@@ -61,6 +61,25 @@ describe('RelationshipMapper', function () {
     });
 });
 
+describe('CodeVisualizationService', function () {
+    it('builds visualization datasets', function () {
+        $context = createFullContext();
+        $context->addResult('graph', (new DependencyGraphBuilder)->build($context));
+        $service = new \ProjectAnalyzer\Graph\CodeVisualizationService;
+
+        $visualizations = $service->build($context);
+
+        expect($visualizations)->toHaveKeys([
+            'component_breakdown',
+            'namespace_breakdown',
+            'dependency_hotspots',
+            'class_size_heatmap',
+            'route_activity',
+        ]);
+        expect($visualizations['component_breakdown'])->not->toBeEmpty();
+    });
+});
+
 describe('GraphVisualizer', function () {
     it('generates mermaid diagram', function () {
         $context = createFullContext();
