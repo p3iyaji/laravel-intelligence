@@ -3,6 +3,9 @@ import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
+    // Relative base so dynamic imports resolve correctly when assets are
+    // served from public/vendor/project-analyzer/build/ in host applications.
+    base: './',
     build: {
         outDir: 'public/build',
         emptyOutDir: true,

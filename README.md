@@ -62,21 +62,24 @@ php artisan project:analyze:report --format=html
 
 ## Artisan Commands
 
-| Command | Description |
-|---------|-------------|
-| `project:analyze` | Full project analysis |
-| `project:analyze --quick` | Use cached results |
-| `project:analyze --path=app/Services` | Analyze specific path |
-| `project:analyze --analyzers=model,controller` | Run specific analyzers |
-| `project:analyze:export --format=json` | Export analysis results |
-| `project:analyze:dashboard` | Show dashboard URL |
-| `project:analyze:docs` | Generate documentation |
-| `project:analyze:clear` | Clear analysis cache |
-| `project:analyze:tests --suggest` | Test coverage suggestions |
-| `project:analyze:database` | Database schema analysis |
-| `project:analyze:security` | Security audit |
-| `project:analyze:watch` | Watch for file changes |
-| `project:analyze:report --format=html` | Generate HTML report |
+| Command                                        | Description               |
+| ---------------------------------------------- | ------------------------- |
+| `project:analyze`                              | Full project analysis     |
+| `project:analyze --quick`                      | Use cached results        |
+| `project:analyze --path=app/Services`          | Analyze specific path     |
+| `project:analyze --analyzers=model,controller` | Run specific analyzers    |
+| `project:analyze:export --format=json`         | Export analysis results   |
+| `project:analyze:dashboard`                    | Show dashboard URL        |
+| `project:analyze:docs`                         | Generate documentation    |
+| `project:analyze:clear`                        | Clear analysis cache      |
+| `project:analyze:tests --suggest`              | Test coverage suggestions |
+| `project:analyze:database`                     | Database schema analysis  |
+| `project:analyze:security`                     | Security audit            |
+| `project:analyze:watch`                        | Watch for file changes    |
+| `project:analyze:report --format=html`         | Generate HTML report      |
+| `project:analyze:tests --generate`             | Generate Tests            |
+| `project:analyze:fix --apply`                  | xxxx apply                |
+| `project:analyze:validate`                     |
 
 ## Configuration
 

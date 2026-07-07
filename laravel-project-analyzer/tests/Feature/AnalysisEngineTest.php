@@ -21,6 +21,10 @@ describe('AnalysisEngine', function () {
         expect($result->data)->not->toBeEmpty();
         expect($result->metrics)->toHaveKey('overall');
         expect($result->metrics['statistics']['total_classes'])->toBeGreaterThan(0);
+        expect($result->data)->toHaveKey('visualizations');
+        expect($result->data)->toHaveKey('cost');
+        expect($result->data)->toHaveKey('validation');
+        expect(collect($result->recommendations)->pluck('category'))->toContain('cost');
     });
 
     it('filters analyzers', function () {
@@ -94,6 +98,41 @@ describe('Artisan Commands', function () {
             ->assertExitCode(0);
     });
 
+    it('generates test stubs from project:analyze:tests command', function () {
+        $basePath = sys_get_temp_dir().'/project-analyzer-command-'.uniqid();
+        mkdir($basePath.'/app/Services', 0755, true);
+        mkdir($basePath.'/tests', 0755, true);
+        file_put_contents($basePath.'/app/Services/BillingService.php', <<<'PHP'
+<?php
+
+namespace App\Services;
+
+class BillingService
+{
+    public function charge(): bool
+    {
+        return true;
+    }
+}
+PHP);
+
+        $this->artisan('project:analyze:tests', [
+            '--generate' => true,
+            '--base-path' => $basePath,
+            '--framework' => 'pest',
+        ])->assertExitCode(0);
+
+        expect(file_exists($basePath.'/tests/Unit/BillingServiceTest.php'))->toBeTrue();
+
+        unlink($basePath.'/tests/Unit/BillingServiceTest.php');
+        unlink($basePath.'/app/Services/BillingService.php');
+        rmdir($basePath.'/tests/Unit');
+        rmdir($basePath.'/tests');
+        rmdir($basePath.'/app/Services');
+        rmdir($basePath.'/app');
+        rmdir($basePath);
+    });
+
     it('runs project:analyze:database command', function () {
         $this->artisan('project:analyze:database')
             ->assertExitCode(0);
@@ -108,6 +147,70 @@ describe('Artisan Commands', function () {
         $this->artisan('project:analyze:dashboard')
             ->assertExitCode(0);
     });
+
+    it('runs project:analyze:fix command', function () {
+        $basePath = sys_get_temp_dir().'/project-analyzer-fix-command-'.uniqid();
+        mkdir($basePath.'/app/Services', 0755, true);
+        mkdir($basePath.'/app/Http/Controllers', 0755, true);
+        mkdir($basePath.'/tests', 0755, true);
+
+        file_put_contents($basePath.'/app/Services/BillingService.php', <<<'PHP'
+<?php
+
+namespace App\Services;
+
+class BillingService
+{
+    public function charge(): bool
+    {
+        return true;
+    }
+}
+PHP);
+
+        file_put_contents($basePath.'/app/Http/Controllers/LegacyController.php', <<<'PHP'
+<?php
+
+namespace App\Http\Controllers;
+
+class LegacyController
+{
+    public function index(): string
+    {
+        return $_GET['filter'];
+    }
+}
+PHP);
+
+        $this->artisan('project:analyze:fix', [
+            '--apply' => true,
+            '--base-path' => $basePath,
+        ])->assertExitCode(0);
+
+        expect(file_exists($basePath.'/tests/Unit/BillingServiceTest.php'))->toBeTrue();
+        expect(file_exists($basePath.'/app/Services/BillingServiceInterface.php'))->toBeTrue();
+
+        unlink($basePath.'/tests/Unit/BillingServiceTest.php');
+        if (file_exists($basePath.'/tests/Feature/LegacyControllerTest.php')) {
+            unlink($basePath.'/tests/Feature/LegacyControllerTest.php');
+            rmdir($basePath.'/tests/Feature');
+        }
+        unlink($basePath.'/app/Services/BillingServiceInterface.php');
+        unlink($basePath.'/app/Services/BillingService.php');
+        unlink($basePath.'/app/Http/Controllers/LegacyController.php');
+        rmdir($basePath.'/tests/Unit');
+        rmdir($basePath.'/tests');
+        rmdir($basePath.'/app/Services');
+        rmdir($basePath.'/app/Http/Controllers');
+        rmdir($basePath.'/app/Http');
+        rmdir($basePath.'/app');
+        rmdir($basePath);
+    });
+
+    it('runs project:analyze:validate command', function () {
+        $this->artisan('project:analyze:validate')
+            ->assertExitCode(0);
+    });
 });
 
 describe('Dashboard Routes', function () {
@@ -115,6 +218,8 @@ describe('Dashboard Routes', function () {
         $response = $this->get('/analyzer');
 
         $response->assertStatus(200);
+        $response->assertSee('data-page', false);
+        $response->assertSee('id="app"', false);
     });
 
     it('loads components page', function () {
@@ -123,8 +228,37 @@ describe('Dashboard Routes', function () {
         $response->assertStatus(200);
     });
 
+    it('serves component source code', function () {
+        $relativePath = 'app/ComponentSourceTest.php';
+        $fullPath = base_path($relativePath);
+
+        @mkdir(dirname($fullPath), 0777, true);
+        file_put_contents($fullPath, "<?php\n\nclass ComponentSourceTest {}\n");
+
+        try {
+            $response = $this->getJson('/analyzer/components/source?file='.$relativePath);
+
+            $response->assertStatus(200)
+                ->assertJsonStructure(['file', 'lines', 'total_lines']);
+        } finally {
+            @unlink($fullPath);
+        }
+    });
+
+    it('rejects path traversal for component source', function () {
+        $response = $this->getJson('/analyzer/components/source?file=../../../etc/passwd');
+
+        $response->assertStatus(403);
+    });
+
     it('loads graphs page', function () {
         $response = $this->get('/analyzer/graphs');
+
+        $response->assertStatus(200);
+    });
+
+    it('loads code visualization page', function () {
+        $response = $this->get('/analyzer/code-visualization');
 
         $response->assertStatus(200);
     });
@@ -135,8 +269,32 @@ describe('Dashboard Routes', function () {
         $response->assertStatus(200);
     });
 
+    it('loads test generation page', function () {
+        $response = $this->get('/analyzer/test-generation');
+
+        $response->assertStatus(200);
+    });
+
+    it('loads auto fix page', function () {
+        $response = $this->get('/analyzer/auto-fix');
+
+        $response->assertStatus(200);
+    });
+
     it('loads metrics page', function () {
         $response = $this->get('/analyzer/metrics');
+
+        $response->assertStatus(200);
+    });
+
+    it('loads insights page', function () {
+        $response = $this->get('/analyzer/insights');
+
+        $response->assertStatus(200);
+    });
+
+    it('loads validation page', function () {
+        $response = $this->get('/analyzer/validation');
 
         $response->assertStatus(200);
     });
@@ -151,6 +309,32 @@ describe('Dashboard Routes', function () {
         $response = $this->get('/analyzer/settings');
 
         $response->assertStatus(200);
+    });
+
+    it('generates tests from dashboard endpoint', function () {
+        $response = $this->postJson('/analyzer/test-generation/generate', [
+            'framework' => 'pest',
+            'force' => false,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['written', 'skipped', 'written_count', 'skipped_count']);
+
+        foreach (($response->json('written') ?? []) as $path) {
+            $absolutePath = base_path($path);
+            if (file_exists($absolutePath)) {
+                unlink($absolutePath);
+            }
+        }
+    });
+
+    it('applies auto fixes from dashboard endpoint', function () {
+        $response = $this->postJson('/analyzer/auto-fix/apply', [
+            'force' => false,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['applied', 'skipped', 'applied_count', 'skipped_count']);
     });
 });
 

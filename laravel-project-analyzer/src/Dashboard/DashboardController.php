@@ -7,17 +7,25 @@ use Illuminate\Routing\Controller;
 use Inertia\Inertia;
 use Inertia\Response;
 use ProjectAnalyzer\Engine\AnalysisEngine;
+use ProjectAnalyzer\Fixes\AutoFixService;
+use ProjectAnalyzer\Graph\CodeVisualizationService;
 use ProjectAnalyzer\Graph\DependencyGraphBuilder;
 use ProjectAnalyzer\Graph\GraphVisualizer;
 use ProjectAnalyzer\Graph\RelationshipMapper;
+use ProjectAnalyzer\Testing\TestGenerationService;
+use ProjectAnalyzer\Validation\ValidationService;
 
 class DashboardController extends Controller
 {
     public function __construct(
         private readonly AnalysisEngine $engine,
+        private readonly AutoFixService $autoFixService,
+        private readonly CodeVisualizationService $codeVisualizationService,
         private readonly DependencyGraphBuilder $graphBuilder,
         private readonly RelationshipMapper $relationshipMapper,
         private readonly GraphVisualizer $visualizer,
+        private readonly TestGenerationService $testGenerationService,
+        private readonly ValidationService $validationService,
     ) {}
 
     public function index(Request $request): Response
@@ -35,11 +43,79 @@ class DashboardController extends Controller
     {
         $result = $this->getOrAnalyze($request);
         $components = $result->data['components'] ?? [];
+        $graphData = $result->data['graph'] ?? $this->graphBuilder->build($this->buildContext($result));
 
         return Inertia::render('Dashboard/Components', [
             'components' => $components,
             'search' => $request->get('search', ''),
+            'securityFindings' => $result->data['security']['findings'] ?? [],
+            'costHotspots' => $result->data['cost']['hotspots'] ?? [],
+            'recommendations' => $result->recommendations,
+            'graphData' => $graphData,
+            'complexity' => $result->metrics['complexity'] ?? [],
+            'sourceUrl' => route('project-analyzer.components.source'),
         ]);
+    }
+
+    public function componentSource(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $file = $request->string('file')->toString();
+
+        if ($file === '') {
+            return response()->json(['error' => 'File path is required'], 400);
+        }
+
+        $basePath = realpath(base_path());
+
+        if ($basePath === false) {
+            return response()->json(['error' => 'Invalid base path'], 500);
+        }
+
+        $fullPath = $this->resolveComponentFilePath($basePath, $file);
+
+        if ($fullPath === null) {
+            return response()->json(['error' => 'Invalid file path'], 403);
+        }
+
+        if (! is_file($fullPath)) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+
+        $content = file_get_contents($fullPath);
+
+        if ($content === false) {
+            return response()->json(['error' => 'Unable to read file'], 500);
+        }
+
+        $lines = preg_split('/\R/', $content) ?: [];
+
+        return response()->json([
+            'file' => $file,
+            'lines' => $lines,
+            'total_lines' => count($lines),
+        ]);
+    }
+
+    private function resolveComponentFilePath(string $basePath, string $file): ?string
+    {
+        $normalizedFile = ltrim(str_replace('\\', '/', $file), '/');
+        $candidates = [$basePath.'/'.$normalizedFile];
+
+        $analysisPaths = config('project-analyzer.analysis.paths', ['app']);
+
+        foreach ($analysisPaths as $path) {
+            $candidates[] = $basePath.'/'.trim($path, '/').'/'.$normalizedFile;
+        }
+
+        foreach ($candidates as $candidate) {
+            $resolved = realpath($candidate);
+
+            if ($resolved !== false && str_starts_with($resolved, $basePath) && is_file($resolved)) {
+                return $resolved;
+            }
+        }
+
+        return null;
     }
 
     public function graphs(Request $request): Response
@@ -56,6 +132,15 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function codeVisualization(Request $request): Response
+    {
+        $result = $this->getOrAnalyze($request);
+
+        return Inertia::render('Dashboard/CodeVisualization', [
+            'visualizations' => $result->data['visualizations'] ?? $this->codeVisualizationService->build($this->buildContext($result)),
+        ]);
+    }
+
     public function tests(Request $request): Response
     {
         $result = $this->getOrAnalyze($request);
@@ -65,6 +150,25 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard/Tests', [
             'testData' => $testData,
             'coverage' => $coverage,
+        ]);
+    }
+
+    public function testGeneration(Request $request): Response
+    {
+        $result = $this->getOrAnalyze($request);
+        $testData = $result->data['test'] ?? [];
+        $config = config('project-analyzer.test_generation', []);
+        $generatedTests = $this->testGenerationService->buildSuggestions(
+            $testData['missing_tests'] ?? [],
+            base_path(),
+            $config
+        );
+
+        return Inertia::render('Dashboard/TestGeneration', [
+            'coverage' => $result->metrics['coverage'] ?? [],
+            'missingTests' => $testData['missing_tests'] ?? [],
+            'generatedTests' => $generatedTests,
+            'config' => $config,
         ]);
     }
 
@@ -87,10 +191,45 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function insights(Request $request): Response
+    {
+        $result = $this->getOrAnalyze($request);
+        $recommendations = $result->recommendations;
+
+        return Inertia::render('Dashboard/Insights', [
+            'recommendations' => $recommendations,
+            'security' => $result->data['security'] ?? [],
+            'cost' => $result->data['cost'] ?? [],
+            'summary' => [
+                'security' => count(array_filter($recommendations, fn ($item) => ($item['category'] ?? null) === 'security')),
+                'enhancement' => count(array_filter($recommendations, fn ($item) => ($item['category'] ?? null) === 'enhancement')),
+                'cost' => count(array_filter($recommendations, fn ($item) => ($item['category'] ?? null) === 'cost')),
+            ],
+        ]);
+    }
+
+    public function autoFix(Request $request): Response
+    {
+        $result = $this->getOrAnalyze($request);
+
+        return Inertia::render('Dashboard/AutoFix', [
+            'candidates' => $this->autoFixService->buildCandidates($result->data, base_path()),
+        ]);
+    }
+
     public function settings(): Response
     {
         return Inertia::render('Dashboard/Settings', [
             'config' => config('project-analyzer'),
+        ]);
+    }
+
+    public function validation(Request $request): Response
+    {
+        $result = $this->getOrAnalyze($request);
+
+        return Inertia::render('Dashboard/Validation', [
+            'validation' => $result->data['validation'] ?? $this->validationService->validateEnvironment(base_path(), config('project-analyzer', [])),
         ]);
     }
 
@@ -102,6 +241,48 @@ class DashboardController extends Controller
         $path = $exporter->export($result, $format);
 
         return response()->json(['path' => $path, 'format' => $format]);
+    }
+
+    public function generateTests(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $result = $this->engine->analyze([
+            'quick' => false,
+        ]);
+
+        $config = array_merge(
+            config('project-analyzer.test_generation', []),
+            ['framework' => $request->string('framework')->toString() ?: config('project-analyzer.test_generation.framework', 'pest')]
+        );
+
+        $generatedTests = $this->testGenerationService->buildSuggestions(
+            $result->data['test']['missing_tests'] ?? [],
+            base_path(),
+            $config
+        );
+
+        $summary = $this->testGenerationService->writeFiles(
+            $generatedTests,
+            base_path(),
+            $request->boolean('force', false)
+        );
+
+        return response()->json($summary);
+    }
+
+    public function applyAutoFixes(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $result = $this->engine->analyze([
+            'quick' => false,
+        ]);
+
+        $candidates = $this->autoFixService->buildCandidates($result->data, base_path());
+        $summary = $this->autoFixService->apply(
+            $candidates,
+            base_path(),
+            $request->boolean('force', false)
+        );
+
+        return response()->json($summary);
     }
 
     private function getOrAnalyze(Request $request): \ProjectAnalyzer\Analysis\Result
