@@ -218,12 +218,37 @@ describe('Dashboard Routes', function () {
         $response = $this->get('/analyzer');
 
         $response->assertStatus(200);
+        $response->assertSee('data-page', false);
+        $response->assertSee('id="app"', false);
     });
 
     it('loads components page', function () {
         $response = $this->get('/analyzer/components');
 
         $response->assertStatus(200);
+    });
+
+    it('serves component source code', function () {
+        $relativePath = 'app/ComponentSourceTest.php';
+        $fullPath = base_path($relativePath);
+
+        @mkdir(dirname($fullPath), 0777, true);
+        file_put_contents($fullPath, "<?php\n\nclass ComponentSourceTest {}\n");
+
+        try {
+            $response = $this->getJson('/analyzer/components/source?file='.$relativePath);
+
+            $response->assertStatus(200)
+                ->assertJsonStructure(['file', 'lines', 'total_lines']);
+        } finally {
+            @unlink($fullPath);
+        }
+    });
+
+    it('rejects path traversal for component source', function () {
+        $response = $this->getJson('/analyzer/components/source?file=../../../etc/passwd');
+
+        $response->assertStatus(403);
     });
 
     it('loads graphs page', function () {

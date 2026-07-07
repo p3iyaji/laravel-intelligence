@@ -3,6 +3,7 @@
 namespace ProjectAnalyzer\Analyzers;
 
 use ProjectAnalyzer\Analysis\Context;
+use ProjectAnalyzer\Support\SourceLineDetector;
 
 class SecurityAnalyzer extends AbstractAnalyzer
 {
@@ -32,32 +33,52 @@ class SecurityAnalyzer extends AbstractAnalyzer
             }
 
             foreach (self::DANGEROUS_FUNCTIONS as $func) {
-                if (preg_match('/\b'.preg_quote($func, '/').'\s*\(/', $content)) {
+                $pattern = '/\b'.preg_quote($func, '/').'\s*\(/';
+                $lines = SourceLineDetector::findPatternLines($content, $pattern);
+
+                if ($lines === []) {
+                    continue;
+                }
+
+                $findings[] = [
+                    'type' => 'dangerous_function',
+                    'severity' => 'high',
+                    'function' => $func,
+                    'file' => $file['path'] ?? $path,
+                    'line' => $lines[0],
+                    'lines' => $lines,
+                    'message' => "Dangerous function '{$func}' detected",
+                    'suggestion' => "Remove or replace {$func}() with a safer API. Avoid dynamic code execution in application code.",
+                ];
+            }
+
+            if (! $this->isTestFile($context->basePath, $path, (string) ($file['path'] ?? ''))) {
+                $rawLines = SourceLineDetector::findPatternLines($content, '/DB::raw\s*\(/');
+
+                if ($rawLines !== []) {
                     $findings[] = [
-                        'type' => 'dangerous_function',
-                        'severity' => 'high',
-                        'function' => $func,
+                        'type' => 'sql_injection_risk',
+                        'severity' => 'medium',
                         'file' => $file['path'] ?? $path,
-                        'message' => "Dangerous function '{$func}' detected",
+                        'line' => $rawLines[0],
+                        'lines' => $rawLines,
+                        'message' => 'Raw SQL query detected - review for SQL injection risks',
+                        'suggestion' => 'Use query bindings via DB::select() or the query builder instead of DB::raw() with dynamic input.',
                     ];
                 }
             }
 
-            if (preg_match('/DB::raw\s*\(/', $content) && ! str_contains($path, 'tests/')) {
-                $findings[] = [
-                    'type' => 'sql_injection_risk',
-                    'severity' => 'medium',
-                    'file' => $file['path'] ?? $path,
-                    'message' => 'Raw SQL query detected - review for SQL injection risks',
-                ];
-            }
+            $superglobalLines = SourceLineDetector::findPatternLines($content, '/\$_(GET|POST|REQUEST)\[/');
 
-            if (preg_match('/\$_(GET|POST|REQUEST)\[/', $content)) {
+            if ($superglobalLines !== []) {
                 $findings[] = [
                     'type' => 'superglobal_usage',
                     'severity' => 'low',
                     'file' => $file['path'] ?? $path,
+                    'line' => $superglobalLines[0],
+                    'lines' => $superglobalLines,
                     'message' => 'Direct superglobal access detected',
+                    'suggestion' => 'Inject Illuminate\\Http\\Request or use request() helper instead of direct $_GET/$_POST/$_REQUEST access.',
                 ];
             }
         }
@@ -69,5 +90,26 @@ class SecurityAnalyzer extends AbstractAnalyzer
             'low_severity' => count(array_filter($findings, fn ($f) => $f['severity'] === 'low')),
             'findings' => $findings,
         ];
+    }
+
+    private function isTestFile(string $basePath, ?string $absolutePath, string $relativePath): bool
+    {
+        $normalizedRelative = str_replace('\\', '/', ltrim($relativePath, '/'));
+
+        if (str_starts_with($normalizedRelative, 'tests/')) {
+            return true;
+        }
+
+        if ($absolutePath === null) {
+            return false;
+        }
+
+        $resolvedBase = realpath($basePath);
+        $resolvedPath = realpath($absolutePath);
+        $testsDirectory = ($resolvedBase ?: rtrim($basePath, '/\\')).'/tests';
+        $resolvedTestsDirectory = realpath($testsDirectory) ?: $testsDirectory;
+
+        return $resolvedPath !== false
+            && str_starts_with($resolvedPath, $resolvedTestsDirectory);
     }
 }

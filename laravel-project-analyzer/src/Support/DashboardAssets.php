@@ -12,6 +12,8 @@ class DashboardAssets
             return '';
         }
 
+        self::publishAssets();
+
         $manifest = self::manifest();
 
         if ($manifest === null) {
@@ -21,7 +23,7 @@ class DashboardAssets
         $entry = $manifest[self::ENTRY] ?? null;
 
         if ($entry === null) {
-            return '';
+            return '<!-- Project Analyzer: dashboard entry missing from manifest. Run: php artisan vendor:publish --tag=project-analyzer-public --force -->';
         }
 
         $baseUrl = self::assetBaseUrl();
@@ -64,27 +66,19 @@ class DashboardAssets
 
     public static function manifestPath(): string
     {
-        $packageCandidates = [
-            self::packagePath('build/manifest.json'),
-            self::packagePath('build/.vite/manifest.json'),
-        ];
-
-        foreach ($packageCandidates as $path) {
-            if ($path && file_exists($path)) {
-                return $path;
-            }
-        }
+        $candidates = [];
 
         if (self::hasApplication()) {
-            $publishedCandidates = [
-                public_path('vendor/project-analyzer/build/manifest.json'),
-                public_path('vendor/project-analyzer/build/.vite/manifest.json'),
-            ];
+            $candidates[] = public_path('vendor/project-analyzer/build/.vite/manifest.json');
+            $candidates[] = public_path('vendor/project-analyzer/build/manifest.json');
+        }
 
-            foreach ($publishedCandidates as $path) {
-                if (file_exists($path)) {
-                    return $path;
-                }
+        $candidates[] = self::packagePath('build/.vite/manifest.json');
+        $candidates[] = self::packagePath('build/manifest.json');
+
+        foreach ($candidates as $path) {
+            if ($path && file_exists($path)) {
+                return $path;
             }
         }
 
@@ -100,14 +94,38 @@ class DashboardAssets
 
     public static function assetBaseUrl(): string
     {
+        $buildDirectory = self::buildDirectoryPath();
+
+        if (self::hasApplication() && str_starts_with($buildDirectory, public_path())) {
+            $relative = str_replace('\\', '/', ltrim(str_replace(public_path(), '', $buildDirectory), '/'));
+
+            return asset($relative);
+        }
+
         if (self::hasApplication()) {
-            if (file_exists(public_path('vendor/project-analyzer/build/manifest.json'))
-                || file_exists(public_path('vendor/project-analyzer/build/.vite/manifest.json'))) {
-                return asset('vendor/project-analyzer/build');
-            }
+            return asset('vendor/project-analyzer/build');
         }
 
         return url('vendor/project-analyzer/build');
+    }
+
+    public static function buildDirectoryPath(): string
+    {
+        $manifestPath = self::manifestPath();
+
+        if (str_contains($manifestPath, DIRECTORY_SEPARATOR.'.vite'.DIRECTORY_SEPARATOR.'manifest.json')) {
+            return dirname(dirname($manifestPath));
+        }
+
+        if (str_ends_with($manifestPath, 'manifest.json')) {
+            return dirname($manifestPath);
+        }
+
+        if (self::hasApplication() && is_dir(public_path('vendor/project-analyzer/build'))) {
+            return public_path('vendor/project-analyzer/build');
+        }
+
+        return self::packagePath('build');
     }
 
     public static function packagePath(string $path = ''): string
@@ -121,7 +139,7 @@ class DashboardAssets
         return $path ? $base.'/'.$path : $base;
     }
 
-    public static function publishAssets(): void
+    public static function publishAssets(bool $force = false): void
     {
         if (! self::hasApplication()) {
             return;
@@ -132,6 +150,15 @@ class DashboardAssets
 
         if (! is_dir($source)) {
             return;
+        }
+
+        $sourceManifest = self::packagePath('build/.vite/manifest.json');
+        $destinationManifest = $destination.'/build/.vite/manifest.json';
+
+        if (! $force && file_exists($sourceManifest) && file_exists($destinationManifest)) {
+            if (filemtime($sourceManifest) <= filemtime($destinationManifest)) {
+                return;
+            }
         }
 
         if (! is_dir($destination)) {

@@ -17,4 +17,13 @@ describe('DashboardAssets', function () {
         expect($path)->not->toBe('');
         expect(file_exists($path))->toBeTrue();
     });
+
+    it('resolves build directory instead of manifest directory', function () {
+        $manifestPath = DashboardAssets::manifestPath();
+        $buildDirectory = DashboardAssets::buildDirectoryPath();
+
+        expect($buildDirectory)->not->toContain('.vite');
+        expect($buildDirectory.'/assets')->toBeDirectory();
+        expect($manifestPath)->toContain('manifest.json');
+    });
 });

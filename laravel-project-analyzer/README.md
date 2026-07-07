@@ -54,6 +54,15 @@ Publish dashboard assets (automatic on first visit, or run manually):
 php artisan vendor:publish --tag=project-analyzer-public
 ```
 
+If `/analyzer` shows a blank page, force-republish the pre-built assets:
+
+```bash
+php artisan vendor:publish --tag=project-analyzer-public --force
+php artisan optimize:clear
+```
+
+Then hard-refresh the browser. Open DevTools → Network and confirm `app-*.js` loads from `/vendor/project-analyzer/build/assets/` with status 200.
+
 The dashboard works out of the box — no need to add package assets to your app's Vite config.
 
 Optional — publish source assets for customization:

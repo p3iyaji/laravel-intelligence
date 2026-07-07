@@ -43,11 +43,79 @@ class DashboardController extends Controller
     {
         $result = $this->getOrAnalyze($request);
         $components = $result->data['components'] ?? [];
+        $graphData = $result->data['graph'] ?? $this->graphBuilder->build($this->buildContext($result));
 
         return Inertia::render('Dashboard/Components', [
             'components' => $components,
             'search' => $request->get('search', ''),
+            'securityFindings' => $result->data['security']['findings'] ?? [],
+            'costHotspots' => $result->data['cost']['hotspots'] ?? [],
+            'recommendations' => $result->recommendations,
+            'graphData' => $graphData,
+            'complexity' => $result->metrics['complexity'] ?? [],
+            'sourceUrl' => route('project-analyzer.components.source'),
         ]);
+    }
+
+    public function componentSource(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $file = $request->string('file')->toString();
+
+        if ($file === '') {
+            return response()->json(['error' => 'File path is required'], 400);
+        }
+
+        $basePath = realpath(base_path());
+
+        if ($basePath === false) {
+            return response()->json(['error' => 'Invalid base path'], 500);
+        }
+
+        $fullPath = $this->resolveComponentFilePath($basePath, $file);
+
+        if ($fullPath === null) {
+            return response()->json(['error' => 'Invalid file path'], 403);
+        }
+
+        if (! is_file($fullPath)) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+
+        $content = file_get_contents($fullPath);
+
+        if ($content === false) {
+            return response()->json(['error' => 'Unable to read file'], 500);
+        }
+
+        $lines = preg_split('/\R/', $content) ?: [];
+
+        return response()->json([
+            'file' => $file,
+            'lines' => $lines,
+            'total_lines' => count($lines),
+        ]);
+    }
+
+    private function resolveComponentFilePath(string $basePath, string $file): ?string
+    {
+        $normalizedFile = ltrim(str_replace('\\', '/', $file), '/');
+        $candidates = [$basePath.'/'.$normalizedFile];
+
+        $analysisPaths = config('project-analyzer.analysis.paths', ['app']);
+
+        foreach ($analysisPaths as $path) {
+            $candidates[] = $basePath.'/'.trim($path, '/').'/'.$normalizedFile;
+        }
+
+        foreach ($candidates as $candidate) {
+            $resolved = realpath($candidate);
+
+            if ($resolved !== false && str_starts_with($resolved, $basePath) && is_file($resolved)) {
+                return $resolved;
+            }
+        }
+
+        return null;
     }
 
     public function graphs(Request $request): Response

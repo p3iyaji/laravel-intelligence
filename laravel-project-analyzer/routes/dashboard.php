@@ -12,6 +12,7 @@ Route::middleware(array_merge($middleware, [\ProjectAnalyzer\Http\Middleware\Han
     ->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/components', [DashboardController::class, 'components'])->name('components');
+        Route::get('/components/source', [DashboardController::class, 'componentSource'])->name('components.source');
         Route::get('/graphs', [DashboardController::class, 'graphs'])->name('graphs');
         Route::get('/code-visualization', [DashboardController::class, 'codeVisualization'])->name('code-visualization');
         Route::get('/tests', [DashboardController::class, 'tests'])->name('tests');

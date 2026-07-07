@@ -103,6 +103,30 @@ describe('GraphVisualizer', function () {
 
         expect($er)->toStartWith('erDiagram');
     });
+
+    it('generates class diagram', function () {
+        $context = createFullContext();
+        $class = collect($context->classes)->firstWhere('fqn', 'App\\Http\\Controllers\\UserController');
+        $visualizer = new GraphVisualizer;
+
+        $diagram = $visualizer->toClassDiagram($class);
+
+        expect($diagram)->toStartWith('classDiagram');
+        expect($diagram)->toContain('UserController');
+        expect($diagram)->toContain('index');
+    });
+
+    it('generates dependency subgraph', function () {
+        $context = createFullContext();
+        $builder = new DependencyGraphBuilder;
+        $graph = $builder->build($context);
+        $visualizer = new GraphVisualizer;
+
+        $subgraph = $visualizer->toSubgraph($graph, 'App\\Http\\Controllers\\UserController');
+
+        expect($subgraph)->toStartWith('graph TD');
+        expect($subgraph)->toContain('UserController');
+    });
 });
 
 describe('ComplexityCalculator', function () {

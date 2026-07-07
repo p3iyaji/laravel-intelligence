@@ -118,6 +118,18 @@ describe('SecurityAnalyzer', function () {
 
         expect($result)->toHaveKeys(['total_findings', 'findings', 'high_severity']);
     });
+
+    it('includes line numbers in findings', function () {
+        $context = createTestContext();
+        $analyzer = new SecurityAnalyzer;
+
+        $result = $analyzer->analyze($context);
+        $costlyFinding = collect($result['findings'])->first(fn ($f) => str_contains($f['file'] ?? '', 'CostlyService.php'));
+
+        expect($costlyFinding)->not->toBeNull();
+        expect($costlyFinding)->toHaveKeys(['line', 'lines', 'suggestion']);
+        expect($costlyFinding['line'])->toBeGreaterThan(0);
+    });
 });
 
 describe('CostAnalyzer', function () {
@@ -129,6 +141,18 @@ describe('CostAnalyzer', function () {
 
         expect($result)->toHaveKeys(['total_hotspots', 'estimated_score', 'hotspots']);
         expect($result['total_hotspots'])->toBeGreaterThan(0);
+    });
+
+    it('includes line numbers in hotspots', function () {
+        $context = createTestContext();
+        $analyzer = new CostAnalyzer;
+
+        $result = $analyzer->analyze($context);
+        $hotspot = collect($result['hotspots'])->first(fn ($h) => str_contains($h['file'] ?? '', 'CostlyService.php'));
+
+        expect($hotspot)->not->toBeNull();
+        expect($hotspot)->toHaveKeys(['line', 'lines', 'suggestion']);
+        expect($hotspot['line'])->toBeGreaterThan(0);
     });
 });
 

@@ -166,9 +166,6 @@ class ProjectAnalyzerServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! file_exists(public_path('vendor/project-analyzer/build/manifest.json'))
-            && ! file_exists(public_path('vendor/project-analyzer/build/.vite/manifest.json'))) {
-            \ProjectAnalyzer\Support\DashboardAssets::publishAssets();
-        }
+        \ProjectAnalyzer\Support\DashboardAssets::publishAssets();
     }
 }
